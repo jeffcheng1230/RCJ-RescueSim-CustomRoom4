@@ -1,259 +1,153 @@
 import React, { useState } from "react";
-
 import { OpenCvProvider, useOpenCv } from "opencv-react";
 
 function MyComponent() {
   const { loaded, cv } = useOpenCv();
-  /*console.log("loaded >> ", loaded);
-  console.log("opencv details >> ", cv);*/
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [imageStatus, setImageStatus] = useState(null);
-  const [grayScale, setGrayScale] = useState(true);
-  const [edge, setEdge] = useState(true);
-  const [rotate, setRotate] = useState(true);
-  const [erosion, setErosion] = useState(true);
-  const [dilation, setDialation] = useState(true);
-  const [src, setSrc] = useState(null);
-  const [dst, setDst] = useState(null);
+  const [image, setImage] = useState(null);
+  const [cont, setCont] = useState(null);
+  const [pixelNum, setPixelNum] = useState(0);
+
+  function showImg(img) {
+    cv.imshow("canvasOutput", img);
+  }
+
+  function slowDraw() {
+    let color = [255, 0, 0, 255];
+    let img = new cv.Mat(image);
+    let points = cont.get(0).data32S;
+    let i = pixelNum * 2;
+    let row = points[i+1];
+    let col = points[i];
+    let pixel = img.ucharPtr(row, col);
+
+    for (let j = 0; j < color.length; j++)
+      pixel[j] = color[j];
+    showImg(img);
+    setImage(img);
+    setPixelNum(pixelNum + 1);
+  }
+
+  function colorContour(img, contour, color) {
+      let points = contour.data32S;
+      for (let i = 0; i < points.length; i += 2) {
+        let row = points[i+1];
+        let col = points[i];
+        let pixel = img.ucharPtr(row, col);
+        for (let j = 0; j < color.length; j++)
+          pixel[j] = color[j];
+      }
+  }
+
+  function has(contPoints, x, y) {
+    for (let i = 0; i < contPoints.length; i++) {
+      let compX = contPoints[0];
+      let compY = contPoints[1];
+
+      // Complete equality
+      /* if (compX == x && compY == y)
+        return true; */
+      
+      // proximity
+      let dist = 0.009;
+      if (Math.pow(compX - x, 2) + Math.pow(compY - y, 2) < Math.pow(dist, 2))
+        return true;
+    }
+	  return false;
+  }
 
   const onImageChange = (e) => {
-    //console.log("e >> ", e.target.files[0]);
     let imgElement = document.getElementById("imageSrc");
-    imgElement.src = URL.createObjectURL(
-      e.target.files[0]
-    );
-    setImageStatus(imgElement);
-    //imgElement.onload = function () {
-    //};
-  };
+    imgElement.src = URL.createObjectURL(e.target.files[0]);
+    setImage(imgElement);
+  }
+  
+  function getContours() {
+    let src = cv.imread(image);
+    let im = new cv.Mat();
+    setImage(src);
+    cv.cvtColor(src, im, cv.COLOR_RGBA2GRAY, 0);
+    cv.threshold(im, im, 127, 255, cv.THRESH_BINARY_INV);
+    let contours = new cv.MatVector();
+    let hierarchy = new cv.Mat();
+    cv.findContours(im, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
+    setCont(contours);
 
-  const onGrayScaleChange = () => {
-    setGrayScale(!grayScale);
-    if (grayScale) {
-      let s = cv.imread(imageStatus);
-      let im = new cv.Mat();
-      cv.cvtColor(s, im, cv.COLOR_RGBA2GRAY, 0);
-      cv.threshold(im, im, 127, 255, cv.THRESH_BINARY_INV);
-      let contours = new cv.MatVector();
-      let hierarchy = new cv.Mat();
-      cv.findContours(im, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
+    /*colorContour(src, contours.get(0), [255, 0, 0, 255]);*/
+    showImg(src);
 
-      let cnt = contours.get(0);
+    let imgHeight = src.size().height;
+    let imgWidth = src.size().width;
+    /*let room4Height = 0.12;
+    let room4Width = 0.12;
+    let shapeHeight = 0.06;*/
+    let room4Height = 1;
+    let room4Width = 1
+    let shapeHeight = 0.1;
+    let roundDigits = 5;
+    let outputStr = '#VRML_SIM R2023a utf8 \nEXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/backgrounds/protos/TexturedBackground.proto" \nEXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto" \nEXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/floors/protos/RectangleArena.proto" \nWorldInfo { \n} \nViewpoint { \norientation -0.5103783998724162 0.5103789137647246 0.6921179475551923 1.930764481981418 \nposition 0.4521811110827828 -0.3615664819350416 2.778990665282702 \n} \nTexturedBackground { \n} \nTexturedBackgroundLight { \n}';
 
-      // draw contours with random Scalar
-      let color = new cv.Scalar(0, 0, 255, 255);
-      cv.drawContours(im, contours, -1, color, 1, 8, hierarchy, 0);
+    for (let i = 0; i < contours.size(); i++) {
+      outputStr += "DEF CURVED Shape { \nappearance Appearance { \nmaterial Material { \ndiffuseColor 0.2 0.47 0.52 \n} \n}\ngeometry IndexedFaceSet { \ncoord Coordinate { \npoint [\n";
+      let contour = contours.get(i);
+      let points = contour.data32S;
+      let contPoints = [];
 
-      // each contour is 32S Mat with 2 channels (every 2 elements is a pair of coord)
-      let points = cnt.data32S;
-      let pixel;
-      for (let i = 0; i < points.length; i += 2) {
-          pixel = s.ucharPtr(points[i+1], points[i]);
-          console.log(points[i+1], points[i]);
-          pixel[0] = 255;
-          pixel[1] = 0;
-          pixel[2] = 0;
-          pixel[3] = 255;
+      for (let j = 0; j < points.length; j += 2) {
+        let row = points[j+1];
+        let col = points[j];
+        let x = (col / imgWidth * room4Width).toFixed(roundDigits);
+        let y = (row / imgHeight * room4Height).toFixed(roundDigits);
+
+        if (!has(contPoints, x, y)) {
+          outputStr += x.toString() + ' ' + y.toString() + ' ' + shapeHeight + ',';
+          contPoints.push([x, y]);
+        }
       }
 
-      cv.imshow("canvasOutput", s);
-      /*console.log(cnt.data32S);
-      console.log(im.data);*/
-      //console.log(cnt.data32S);
+      outputStr += "\n]\n}\ncoordIndex [\n";
+      for (let j = contPoints.length - 1; j >= 0; j--) 
+        outputStr += j.toString() + ',';
+      outputStr += "-1,\n]\n}\n}";
     }
+
+    const blob = new Blob([outputStr], { type: "wbt" });
+    downloadRef.current.href = URL.createObjectURL(blob);
+    downloadRef.current.download = "room4.wbt";
   };
 
-  const onEdgeChange = () => {
-    setEdge(!edge);
-    if (edge) {
-      if (dst === null) {
-        src = cv.imread(imageStatus);
-        dst = new cv.Mat();
-      }
-      cv.cvtColor(src, src, cv.COLOR_RGB2GRAY, 0);
-      // You can try more different parameters
-      cv.Canny(src, dst, 50, 100, 3, false);
-      cv.imshow("canvasOutput", dst);
-      src.delete();
-      dst.delete();
-    }
-  };
-
-  const onRotateChange = () => {
-    setRotate(!rotate);
-    if (rotate) {
-      if (dst === null) {
-        src = cv.imread(imageStatus);
-        dst = new cv.Mat();
-      }
-      let dsize = new cv.Size(src.rows, src.cols);
-      let center = new cv.Point(src.cols / 2, src.rows / 2);
-      // You can try more different parameters
-      let M = cv.getRotationMatrix2D(center, 45, 1);
-      cv.warpAffine(
-        src,
-        dst,
-        M,
-        dsize,
-        cv.INTER_LINEAR,
-        cv.BORDER_CONSTANT,
-        new cv.Scalar()
-      );
-      cv.imshow("canvasOutput", dst);
-      //src.delete();
-      //dst.delete();
-      M.delete();
-    }
-  };
-
-  const onErosionChange = () => {
-    setErosion(!erosion);
-    if (erosion) {
-      if (dst === null) {
-        src = cv.imread(imageStatus);
-        dst = new cv.Mat();
-      }
-      let M = cv.Mat.ones(5, 5, cv.CV_8U);
-      let anchor = new cv.Point(-1, -1);
-      // You can try more different parameters
-      cv.erode(
-        src,
-        dst,
-        M,
-        anchor,
-        1,
-        cv.BORDER_CONSTANT,
-        cv.morphologyDefaultBorderValue()
-      );
-      cv.imshow("canvasOutput", dst);
-      src.delete();
-      dst.delete();
-      M.delete();
-    }
-  };
-
-  const onDilationChange = () => {
-    setDialation(!dilation);
-    if (dilation) {
-      if (dst === null) {
-        src = cv.imread(imageStatus);
-        dst = new cv.Mat();
-      }
-      let M = cv.Mat.ones(5, 5, cv.CV_8U);
-      let anchor = new cv.Point(-1, -1);
-      // You can try more different parameters
-      cv.dilate(
-        src,
-        dst,
-        M,
-        anchor,
-        1,
-        cv.BORDER_CONSTANT,
-        cv.morphologyDefaultBorderValue()
-      );
-      cv.imshow("canvasOutput", dst);
-      src.delete();
-      dst.delete();
-      M.delete();
-    }
-  };
+  var downloadRef = React.createRef();
 
   if (loaded) {
     return (
-      <>
-        <div className="inputoutput">
-          <div className="processing">
-            Apply Grayscale
-            <input
-              type="checkbox"
-              id="RGB2Gray"
-              name="RGB2Gray"
-              value="Grayscale Conversion"
-              onChange={onGrayScaleChange}
-            />
-            <br></br>
-            Detect Edges
-            <input
-              type="checkbox"
-              id="edgeDetection"
-              name="edgeDetection"
-              value="Edge Detection"
-              onChange={onEdgeChange}
-            />
-            <br></br>
-            Rotate Image
-            <input
-              type="checkbox"
-              id="rotateImage"
-              name="rotateImage"
-              value="Rotate Image"
-              onChange={onRotateChange}
-            />
-            <br></br>
-            Image Erosion
-            <input
-              type="checkbox"
-              id="erosion"
-              name="erosion"
-              value="Image Erosion"
-              onChange={onErosionChange}
-            />
-            <br></br>
-            Image Dilation
-            <input
-              type="checkbox"
-              id="dilation"
-              name="dilation"
-              value="Image Dilation"
-              onChange={onDilationChange}
-            />
-          </div>
-          <img id="imageSrc" alt="No Image" style={{display: "none"}} />
-          <div className="caption">
-            imageSrc{" "}
-            <input
-              type="file"
-              id="fileInput"
-              name="file"
-              onChange={(e) => onImageChange(e)}
-            />
-          </div>
+      <div style={{flex: 'column'}}>
+        <img id="imageSrc" alt="No Image" src="/logo192.png" style={{display: "none"}} />
+        <div>
+          Select Image: 
+          <input
+            type="file"
+            id="fileInput"
+            name="file"
+            onChange={(e) => onImageChange(e)}
+          />
         </div>
-        <div className="inputoutput">
-          <canvas id="canvasOutput" style={{width: 500}}></canvas>
-          <div className="caption">canvasOutput</div>
+        <div>
+          Execute Room 4: 
+          <input type="checkbox" onChange={getContours}></input>
         </div>
-      </>
+        <div>
+          Draw Contour Pixel:
+          <input type="checkbox" onChange={slowDraw}></input>
+        </div>
+        <a ref={downloadRef}>Download</a>
+        <canvas id="canvasOutput" style={{width: 500}}>
+        </canvas>
+      </div>
     );
     // return <p>opencv loaded</p>;
   } else {
     return (
       <div>
         <h1>Testing Opencv-React Lib </h1>
-        {selectedImage && (
-          <div>
-            <img
-              alt="not fount"
-              width={"250px"}
-              src={URL.createObjectURL(selectedImage)}
-              id="img"
-            />
-            <br />
-            <button onClick={() => setSelectedImage(null)}>Remove</button>
-            <canvas id="output"></canvas>
-          </div>
-        )}
-        <br />
-
-        <br />
-        <input
-          type="file"
-          name="myImage"
-          onChange={(event) => {
-            console.log(event.target.files[0]);
-            setSelectedImage(event.target.files[0]);
-          }}
-        />
       </div>
     );
   }
