@@ -1,12 +1,18 @@
 import React, { useState } from "react";
 import { OpenCvProvider, useOpenCv } from "opencv-react";
 
+import './App.css'
+
 function MyComponent() {
   const { loaded, cv } = useOpenCv();
   const [image, setImage] = useState(null);
   const [cont, setCont] = useState(null);
   const [contNum, setContNum] = useState(0);
   const [pixelNum, setPixelNum] = useState(0);
+  const [roomWidth, setRoomWidth] = useState(0);
+  const [roomHeight, setRoomHeight] = useState(0);
+  const [message, setMessage] = useState("Enter room 4 dimensions and input image");
+  const tileSize = 0.12;
 
   function showImg(img) {
     cv.imshow("canvasOutput", img);
@@ -70,6 +76,7 @@ function MyComponent() {
   const onImageChange = (e) => {
     let imgElement = document.getElementById("imageSrc");
     imgElement.src = URL.createObjectURL(e.target.files[0]);
+    showImg(cv.imread(imgElement));
     setImage(imgElement);
   }
   
@@ -84,19 +91,20 @@ function MyComponent() {
     cv.findContours(im, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
     setCont(contours);
 
-    /*colorContour(src, contours.get(0), [255, 0, 0, 255]);*/
-    showImg(src);
+    // colorContour(src, contours.get(0), [255, 0, 0, 255]);
+    // showImg(src);
 
     let imgWidth = src.size().width;
     let imgHeight = src.size().height;
-    /*let room4Height = 0.12;
-    let room4Width = 0.12;
-    let shapeHeight = 0.06;*/
-    let room4Width = 1;
-    let room4Height = room4Width * imgHeight / imgWidth;
+    let room4Width = roomWidth * tileSize;
+    let room4Height = roomHeight * tileSize;
     let shapeHeight = 0.1;
     let roundDigits = 5;
     let outputStr = '#VRML_SIM R2023a utf8 \nEXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/backgrounds/protos/TexturedBackground.proto" \nEXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto" \nEXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/floors/protos/RectangleArena.proto" \nWorldInfo { \n} \nViewpoint { \norientation -0.5103783998724162 0.5103789137647246 0.6921179475551923 1.930764481981418 \nposition 0.4521811110827828 -0.3615664819350416 2.778990665282702 \n} \nTexturedBackground { \n} \nTexturedBackgroundLight { \n}';
+    if (room4Width / room4Height != imgWidth / imgHeight) {
+      setMessage("Inputted width:height ratio is not same as inputted image width:height ratio");
+      return;
+    }
 
     for (let i = 0; i < contours.size(); i++) {
       outputStr += "DEF CURVED Shape { \nappearance Appearance { \nmaterial Material { \ndiffuseColor 0.2 0.47 0.52 \n} \n}\ngeometry IndexedFaceSet { \ncoord Coordinate { \npoint [\n";
@@ -111,10 +119,6 @@ function MyComponent() {
         let y = (row / imgHeight * room4Height).toFixed(roundDigits);
 
         if (!has(contPoints, x, y)) {
-          if (contPoints.length == 117 ||
-              contPoints.length == 118 ||
-              contPoints.length == 109)
-              console.log(x, y);
           outputStr += x.toString() + ' ' + y.toString() + ' ' + shapeHeight + ',';
           contPoints.push([x, y]);
         }
@@ -134,8 +138,58 @@ function MyComponent() {
   var downloadRef = React.createRef();
 
   if (loaded) {
+
+    /* TODO:
+        - Fix imshow issue (keep reverting to old code)
+        - Export proto instead of wbt
+    */
+
     return (
-      <div style={{flex: 'column'}}>
+      <div>
+        <h1 className="header">RCJ Rescue Simulation Custom Room 4 Creation</h1>
+
+        <div className="input-row">
+          <h3 className="input-heading"><u>Room 4 Inputs</u></h3>
+        </div>
+        <div className="input-row">
+          <div className="input-container">
+            Room 4 Width:
+            <input className="number-input"
+                   type="number"
+                   name="roomWidth"
+                   value={roomWidth}
+                   onChange={(e) => {
+                    setRoomWidth(Number(e.target.value));}
+                    } />
+            Tiles
+          </div>
+          <div className="input-container">
+            Room 4 Height:
+            <input className="number-input"
+                   type="number"
+                   name="roomHeight"
+                   value={roomHeight}
+                   onChange={(e) => {
+                    setRoomHeight(Number(e.target.value));}
+                    } />
+            Tiles
+          </div>
+          <div className="input-container">
+            Select Image: 
+            <input
+              className="file-input"
+              type="file"
+              id="fileInput"
+              name="file"
+              onChange={(e) => onImageChange(e)}
+            />
+            <button onClick={getContours}>Go</button>
+          </div>
+        </div>
+        <div className="input-row">
+          <a ref={downloadRef}><h3>{message}</h3></a>
+        </div>
+
         <img id="imageSrc" alt="No Image" src="/logo192.png" style={{display: "none"}} />
         <div>
           Select Image: 
@@ -145,16 +199,17 @@ function MyComponent() {
             name="file"
             onChange={(e) => onImageChange(e)}
           />
+          </div>
+          <div className="input-row">
+          <button onClick={getContours}>Go</button>
         </div>
         <div>
           Execute Room 4: 
-          <input type="checkbox" onChange={getContours}></input>
         </div>
         <div>
           Draw Contour Pixel:
           <input type="checkbox" onChange={slowDraw}></input>
         </div>
-        <a ref={downloadRef}>Download</a>
         <canvas id="canvasOutput" style={{width: 500}}>
         </canvas>
       </div>
