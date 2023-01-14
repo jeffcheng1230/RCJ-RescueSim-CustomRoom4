@@ -5,6 +5,7 @@ function MyComponent() {
   const { loaded, cv } = useOpenCv();
   const [image, setImage] = useState(null);
   const [cont, setCont] = useState(null);
+  const [contNum, setContNum] = useState(0);
   const [pixelNum, setPixelNum] = useState(0);
 
   function showImg(img) {
@@ -14,7 +15,7 @@ function MyComponent() {
   function slowDraw() {
     let color = [255, 0, 0, 255];
     let img = new cv.Mat(image);
-    let points = cont.get(0).data32S;
+    let points = cont.get(contNum).data32S;
     let i = pixelNum * 2;
     let row = points[i+1];
     let col = points[i];
@@ -24,7 +25,12 @@ function MyComponent() {
       pixel[j] = color[j];
     showImg(img);
     setImage(img);
-    setPixelNum(pixelNum + 1);
+    if (pixelNum * 2 == points.length) {
+      setContNum(contNum + 1);
+      setPixelNum(0);
+    }
+    else
+      setPixelNum(pixelNum + 1);
   }
 
   function colorContour(img, contour, color) {
@@ -40,17 +46,23 @@ function MyComponent() {
 
   function has(contPoints, x, y) {
     for (let i = 0; i < contPoints.length; i++) {
-      let compX = contPoints[0];
-      let compY = contPoints[1];
+      let compX = contPoints[i][0];
+      let compY = contPoints[i][1];
 
       // Complete equality
       /* if (compX == x && compY == y)
         return true; */
       
       // proximity
-      let dist = 0.009;
+      let dist = 0.002;
       if (Math.pow(compX - x, 2) + Math.pow(compY - y, 2) < Math.pow(dist, 2))
         return true;
+
+      // single-axis proximity
+      /* let dist = 0.0005;
+      if (Math.abs(compX - x) < dist || Math.abs(compY - y) < dist)
+        return true; */
+
     }
 	  return false;
   }
@@ -75,13 +87,13 @@ function MyComponent() {
     /*colorContour(src, contours.get(0), [255, 0, 0, 255]);*/
     showImg(src);
 
-    let imgHeight = src.size().height;
     let imgWidth = src.size().width;
+    let imgHeight = src.size().height;
     /*let room4Height = 0.12;
     let room4Width = 0.12;
     let shapeHeight = 0.06;*/
-    let room4Height = 1;
-    let room4Width = 1
+    let room4Width = 1;
+    let room4Height = room4Width * imgHeight / imgWidth;
     let shapeHeight = 0.1;
     let roundDigits = 5;
     let outputStr = '#VRML_SIM R2023a utf8 \nEXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/backgrounds/protos/TexturedBackground.proto" \nEXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto" \nEXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/floors/protos/RectangleArena.proto" \nWorldInfo { \n} \nViewpoint { \norientation -0.5103783998724162 0.5103789137647246 0.6921179475551923 1.930764481981418 \nposition 0.4521811110827828 -0.3615664819350416 2.778990665282702 \n} \nTexturedBackground { \n} \nTexturedBackgroundLight { \n}';
@@ -99,6 +111,10 @@ function MyComponent() {
         let y = (row / imgHeight * room4Height).toFixed(roundDigits);
 
         if (!has(contPoints, x, y)) {
+          if (contPoints.length == 117 ||
+              contPoints.length == 118 ||
+              contPoints.length == 109)
+              console.log(x, y);
           outputStr += x.toString() + ' ' + y.toString() + ' ' + shapeHeight + ',';
           contPoints.push([x, y]);
         }
