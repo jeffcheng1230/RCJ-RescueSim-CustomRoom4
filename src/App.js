@@ -11,8 +11,8 @@ function MyComponent() {
   const [noDupCont, setNoDupCont] = useState([]);
   const [contNum, setContNum] = useState(0);
   const [pixelNum, setPixelNum] = useState(0);
-  const [roomWidth, setRoomWidth] = useState(0);
-  const [roomHeight, setRoomHeight] = useState(0);
+  const [roomWidth, setRoomWidth] = useState(1);
+  const [roomHeight, setRoomHeight] = useState(1);
   const [message, setMessage] = useState(
     "Enter room 4 dimensions and input image"
   );
@@ -37,13 +37,7 @@ function MyComponent() {
     let points = noDupCont[contNum];
     let row = points[pixelNum][0];
     let col = points[pixelNum][1];
-    cv.circle(
-      img,
-      new cv.Point(col, row),
-      3,
-      new cv.Scalar(255, 0, 0, 255),
-      5
-    );
+    cv.circle(img, new cv.Point(col, row), 3, new cv.Scalar(255, 0, 0, 255), 5);
 
     showImg(img);
     setDrawImg(img);
@@ -148,6 +142,7 @@ function MyComponent() {
         let y = ((row / imgHeight) * room4Height).toFixed(roundDigits);
 
         if (!has(contPoints, x, y)) {
+          outputStr += x.toString() + " " + y.toString() + " " + "0" + ",";
           outputStr +=
             x.toString() + " " + y.toString() + " " + shapeHeight + ",";
           contPoints.push([x, y]);
@@ -156,8 +151,23 @@ function MyComponent() {
       }
 
       outputStr += "\n]\n}\ncoordIndex [\n";
+      for (let j = 0; j < contPoints.length - 1; j++) {
+        outputStr +=
+          (j * 2).toString() + "," +
+          (j * 2 + 1).toString() + "," +
+          ((j + 1) * 2 + 1).toString() + "," +
+          ((j + 1) * 2).toString() + "," +
+          "-1,";
+      }
+      let tmp = contPoints.length - 1;
+      outputStr +=
+        (tmp * 2).toString() + "," +
+        (tmp * 2 + 1).toString() + "," +
+        "1" + "," +
+        "0" + "," +
+        "-1,";
       for (let j = contPoints.length - 1; j >= 0; j--)
-        outputStr += j.toString() + ",";
+        outputStr += (j * 2 + 1).toString() + ",";
       outputStr += "-1,\n]\n}\n}";
     }
     setNoDupCont(fullContPoints);
