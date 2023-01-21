@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { OpenCvProvider, useOpenCv } from "opencv-react";
 
+import Header from "./Header";
 import "./App.css";
 
 function MyComponent() {
@@ -68,11 +69,8 @@ function MyComponent() {
 
       // proximity
       let dist = 0.002;
-      if (Math.pow(compX - x, 2) + Math.pow(compY - y, 2) < Math.pow(dist, 2)) {
-        console.log(compX, compY);
-        console.log(x, y);
+      if (Math.pow(compX - x, 2) + Math.pow(compY - y, 2) < Math.pow(dist, 2))
         return true;
-      }
 
       // single-axis proximity
       /* let dist = 0.0005;
@@ -113,10 +111,9 @@ function MyComponent() {
     let imgHeight = src.size().height;
     let room4Width = roomWidth * tileSize;
     let room4Height = roomHeight * tileSize;
-    let shapeHeight = 0.1;
+    let wallHeight = 0.06;
     let roundDigits = 5;
-    let outputStr =
-      '#VRML_SIM R2023a utf8 \nEXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/backgrounds/protos/TexturedBackground.proto" \nEXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto" \nEXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/floors/protos/RectangleArena.proto" \nWorldInfo { \n} \nViewpoint { \norientation -0.5103783998724162 0.5103789137647246 0.6921179475551923 1.930764481981418 \nposition 0.4521811110827828 -0.3615664819350416 2.778990665282702 \n} \nTexturedBackground { \n} \nTexturedBackgroundLight { \n}';
+    let outputStr = (new Header()).header;
     if (room4Width / room4Height != imgWidth / imgHeight) {
       setMessage(
         "Inputted width:height ratio is not same as inputted image width:height ratio"
@@ -141,10 +138,13 @@ function MyComponent() {
         let x = ((col / imgWidth) * room4Width).toFixed(roundDigits);
         let y = ((row / imgHeight) * room4Height).toFixed(roundDigits);
 
+        if (x > room4Width)
+          console.log(x, room4Width);
+
         if (!has(contPoints, x, y)) {
-          outputStr += x.toString() + " " + y.toString() + " " + "0" + ",";
+          outputStr += x.toString() + " " + "0" + " " + y.toString() + ",";
           outputStr +=
-            x.toString() + " " + y.toString() + " " + shapeHeight + ",";
+            x.toString() + " " + wallHeight + " " + y.toString() + ",";
           contPoints.push([x, y]);
           fullContPoints[i].push([row, col]);
         }
@@ -154,27 +154,28 @@ function MyComponent() {
       for (let j = 0; j < contPoints.length - 1; j++) {
         outputStr +=
           (j * 2).toString() + "," +
-          (j * 2 + 1).toString() + "," +
-          ((j + 1) * 2 + 1).toString() + "," +
           ((j + 1) * 2).toString() + "," +
+          ((j + 1) * 2 + 1).toString() + "," +
+          (j * 2 + 1).toString() + "," +
           "-1,";
       }
       let tmp = contPoints.length - 1;
       outputStr +=
         (tmp * 2).toString() + "," +
-        (tmp * 2 + 1).toString() + "," +
-        "1" + "," +
         "0" + "," +
+        "1" + "," +
+        (tmp * 2 + 1).toString() + "," +
         "-1,";
-      for (let j = contPoints.length - 1; j >= 0; j--)
+      for (let j = 0; j < contPoints.length; j++)
         outputStr += (j * 2 + 1).toString() + ",";
       outputStr += "-1,\n]\n}\n}";
     }
     setNoDupCont(fullContPoints);
+    outputStr += `]\n }\n ]\n }\n ]\n name "Area4"\n }\n }`;
 
     const blob = new Blob([outputStr], { type: "wbt" });
     downloadRef.current.href = URL.createObjectURL(blob);
-    downloadRef.current.download = "room4.wbt";
+    downloadRef.current.download = "custom-room4.proto";
   }
 
   var downloadRef = React.createRef();
@@ -182,6 +183,8 @@ function MyComponent() {
   if (loaded) {
     /* TODO:
         - Export proto instead of wbt
+        - How to place custom room 4 (no red/green defined)
+        - Fix CMS to do custom
     */
     return (
       <div>
